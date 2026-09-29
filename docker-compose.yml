@@ -3,7 +3,15 @@ services:
     image: flink:1.18.1-scala_2.12
     ports:
       - "8081:8081"
-    command: jobmanager
+    # Download the kafka connector into flink's lib directory at startup.  The connector version has to match the flink version.
+        # I went to maven.org and searched until I found the JARs here with their release dates: https://central.sonatype.com/artifact/org.apache.flink/flink-sql-connector-kafka/versions
+        # Clicked "browse" to get the raw JAR url.
+    # Additionally, this is the flink-sql-connector-kafka as opposed to the flink-connector-kafka because it includes all of its dependencies.
+    entrypoint: >
+      bash -c "
+      wget -P /opt/flink/lib/ https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kafka/3.1.0-1.18/flink-sql-connector-kafka-3.1.0-1.18.jar &&
+      /docker-entrypoint.sh jobmanager
+      "
     environment:
       jobmanager.rpc.address: "jobmanager"
 
@@ -11,10 +19,15 @@ services:
     image: flink:1.18.1-scala_2.12
     depends_on:
       - jobmanager
-    command: taskmanager
+    # TaskManager needs a copy of the connector JAR to run parallel pipelines too
+    entrypoint: >
+      bash -c "
+      wget -P /opt/flink/lib/ https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kafka/3.1.0-1.18/flink-sql-connector-kafka-3.1.0-1.18.jar &&
+      /docker-entrypoint.sh taskmanager
+      " 
     environment:
       jobmanager.rpc.address: "jobmanager"
-      taskmanager.numberOfTaskSlots: "2"
+      taskmanager.numberOfTaskSlots: "2"  # Intentionally constrained so that we can see the effects of high load.
 
   kafka:
     image: docker.redpanda.com/redpandadata/redpanda:v23.2.1
@@ -24,8 +37,20 @@ services:
       - redpanda
       - start
       - --mode
-      - dev-container
+      - dev-container  # We set mode=dev so that when kafka receives events for a new partition it will autocreate that partition.
       - --kafka-addr
       - internal://0.0.0.0:9092,external://0.0.0.0:19092
       - --advertise-kafka-addr
-      - internal://kafka:9092,external://127.0.0.1:19092
+      - internal://kafka:9092,external://127.0.0.1:19092  # This is intentionally set to 127.0.0.1 instead of localhost to force it to use ipv4.  MacOS smartly switches between ipv4 and ipv6, but we're not sure if the python kafka client is smart enough to switch in sync, so we enforce ipv4 to be safe.
+
+  # This is a kafka viewer.
+  console:
+    image: docker.redpanda.com/redpandadata/console:v2.3.8
+    ports:
+      - "8080:8080"
+    environment:
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      - kafka
+
+

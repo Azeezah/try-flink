@@ -27,6 +27,11 @@ Open a flinkSQL command line with `docker compose exec jobmanager ./bin/sql-clie
 
 Then enter the sql:
 ```sql
+-- Instructs Flink to combine source, calculation, and sink stages into identical slots
+SET 'table.exec.mini-batch.enabled' = 'true';
+SET 'table.exec.mini-batch.allow-latency' = '5s';
+SET 'table.exec.mini-batch.buffer-size' = '5000';
+
 CREATE TABLE youtube_inbound_stream (
     videoid STRING,
     ts_string STRING,

@@ -21,39 +21,20 @@ Run `python3 generate-fake-clicks-data.py` which creates `youtube-clicks.csv`.
 ## 3. Send the fake data to the kafka
 Run `python3 run-sim.py`
 
-## 4. Get flink to consume the data
+## 4. Get flink to consume the data from Kafka
 
-Open a flinkSQL command line with `docker compose exec jobmanager ./bin/sql-client.sh`
+The query lives in [`sql/clicks-per-minute.sql`](sql/clicks-per-minute.sql) which is mirrored into the docker container.  Run it like this:
 
-Then enter the sql:
-```sql
--- Instructs Flink to combine source, calculation, and sink stages into identical slots
-SET 'table.exec.mini-batch.enabled' = 'true';
-SET 'table.exec.mini-batch.allow-latency' = '5s';
-SET 'table.exec.mini-batch.buffer-size' = '5000';
+```sh
+docker compose exec jobmanager ./bin/sql-client.sh -f /opt/flink/sql/clicks-per-minute.sql
+```
 
-CREATE TABLE youtube_inbound_stream (
-    videoid STRING,
-    ts_string STRING,
-    click_time AS TO_TIMESTAMP(ts_string, 'yyyy-MM-dd HH:mm:ss'),
-    WATERMARK FOR click_time AS click_time - INTERVAL '10' SECOND
-) WITH (
-    'connector' = 'kafka',
-    'topic' = 'youtube-clicks',
-    'properties.bootstrap.servers' = 'kafka:9092',
-    'properties.group.id' = 'flink-analysis-group',
-    'scan.startup.mode' = 'earliest-offset',
-    'format' = 'json'
-);
+The output is clicks **per video per simulated minute**.
 
-SELECT 
-    videoid,
-    TUMBLE_START(click_time, INTERVAL '1' MINUTE) AS window_start,
-    COUNT(*) AS click_count
-FROM youtube_inbound_stream
-GROUP BY 
-    videoid, 
-    TUMBLE(click_time, INTERVAL '1' MINUTE);
+For an interactive SQL prompt instead:
+
+```sh
+docker compose exec jobmanager ./bin/sql-client.sh
 ```
 
 # How to monitor
@@ -66,7 +47,8 @@ View Flink's web dashboard: http://localhost:8081
 View Kafka's web dashboard: http://localhost:8080/overview
 
 # Files
- - `docker-compose.yaml` - This describes and configures a kafka and a flink instance.
+ - `sql/clicks-per-minute.sql` - This contains the clicks-per-minute query in flinkSQL.
+ - `docker-compose.yml` - This describes and configures a kafka and a flink instance.
  - `generate-fake-clicks-data.py` - This creates `youtube-clicks.csv` with the columns `videoid` and `timestamp`.
  - `youtube-clicks.csv` - This contains the generated fake click data.
  - `run-sim.py` - This sends the clicks to the kafka, respecting the timestamps for each event.

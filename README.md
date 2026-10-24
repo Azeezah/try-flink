@@ -9,6 +9,19 @@ Docker will handle downloading everything else.
 
 # How to run it
 
+## Control panel
+
+Install the Python dependencies once, then start the cross-platform local web control panel:
+
+```sh
+python3 -m pip install -r requirements.txt
+python3 app.py
+```
+
+Open http://127.0.0.1:5000. **Start everything** brings up Docker Compose, waits for Flink, submits the SQL file, and starts the simulator. The traffic controls pause/resume the producer and change its simulated-time speed without restarting it. **Stop** and **Restart** also clean up the SQL client and simulator processes.
+
+The panel is intentionally a separate UI layer. It is a good home for the metrics we care about most, while the Flink and Redpanda dashboards remain useful for deep dives and troubleshooting.
+
 ## 1. Start the flink and kafka inside of docker
 Start the docker desktop app then run `docker compose up -d`.
 <br>

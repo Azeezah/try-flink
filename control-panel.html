@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flink playground</title>
+  <style>
+    :root { color-scheme: dark; --bg: #0c1117; --panel: #141c25; --line: #263543; --text: #edf4f7; --muted: #8ea1ad; --mint: #6ee7c8; --amber: #ffc86b; --red: #ff7d86; }
+    * { box-sizing: border-box; } body { margin: 0; min-height: 100vh; background: radial-gradient(circle at 15% 0%, #1b3e45 0, transparent 35%), var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, sans-serif; }
+    main { max-width: 1080px; margin: auto; padding: 56px 28px 72px; } .eyebrow { color: var(--mint); letter-spacing: .12em; text-transform: uppercase; font-size: 12px; font-weight: 700; }
+    h1 { font-size: clamp(38px, 7vw, 70px); line-height: .98; letter-spacing: -.05em; margin: 12px 0 16px; max-width: 680px; } .intro { color: var(--muted); font-size: 17px; max-width: 620px; }
+    .grid { display: grid; grid-template-columns: 1.25fr .75fr; gap: 18px; margin-top: 42px; } .card { background: rgba(20, 28, 37, .9); border: 1px solid var(--line); border-radius: 20px; padding: 24px; box-shadow: 0 18px 55px #0003; }
+    .card h2 { margin: 0 0 8px; font-size: 19px; } .sub { color: var(--muted); margin: 0 0 22px; } .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    button, select { border: 1px solid #385061; border-radius: 10px; padding: 11px 15px; background: #1b2934; color: var(--text); font: inherit; cursor: pointer; } button:hover, select:hover { border-color: var(--mint); }
+    button.primary { background: var(--mint); color: #08221e; border-color: var(--mint); font-weight: 750; } button.danger { color: var(--red); } button:disabled { opacity: .45; cursor: wait; }
+    .status { display: flex; align-items: center; gap: 10px; margin: 12px 0 0; color: var(--muted); } .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--amber); } .dot.live { background: var(--mint); box-shadow: 0 0 16px var(--mint); } .dot.off { background: var(--red); }
+    .setting { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 15px 0; border-bottom: 1px solid var(--line); } .setting:last-child { border-bottom: 0; padding-bottom: 0; } .setting label { color: var(--muted); }
+    .hint { grid-column: 1 / -1; display: flex; gap: 12px; align-items: flex-start; color: var(--muted); font-size: 14px; } .hint strong { color: var(--text); } .toast { position: fixed; right: 24px; bottom: 24px; background: #20333d; border: 1px solid #3b5962; padding: 12px 16px; border-radius: 12px; opacity: 0; transform: translateY(10px); transition: .2s; } .toast.show { opacity: 1; transform: none; }
+    @media (max-width: 760px) { main { padding: 34px 18px 48px; } .grid { grid-template-columns: 1fr; margin-top: 28px; } .hint { grid-column: auto; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">Flink playground · local control</div>
+    <h1>Make streaming feel tangible.</h1>
+    <p class="intro">Start the stack, shape the traffic, and keep the experiment close at hand. Metrics can join this screen as the playground grows.</p>
+    <section class="grid">
+      <article class="card">
+        <h2>Simulation</h2><p class="sub">Docker, Flink SQL, and the click producer.</p>
+        <div class="actions"><button class="primary" data-action="start">Start everything</button><button data-action="restart">Restart</button><button class="danger" data-action="stop">Stop</button></div>
+        <div class="status"><span id="dot" class="dot"></span><span id="message">Checking status…</span></div>
+      </article>
+      <article class="card">
+        <h2>Traffic controls</h2><p class="sub">Change the scenario while it is running.</p>
+        <div class="setting"><label for="speed">Simulated time</label><select id="speed"><option value="1">1× · real time</option><option value="60">60× · fast</option><option value="120" selected>120× · very fast</option></select></div>
+        <div class="setting"><label>Traffic flow</label><button id="pause">Pause traffic</button></div>
+      </article>
+      <div class="hint"><span>✦</span><span><strong>Next up:</strong> the same surface can show Kafka lag, Flink throughput, checkpoints, backpressure, and the clicks-per-minute output without replacing the native dashboards.</span></div>
+    </section>
+  </main><div id="toast" class="toast"></div>
+  <script>
+    const $ = s => document.querySelector(s), toast = msg => { const el = $('#toast'); el.textContent = msg; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2600); };
+    async function call(path, body) { const response = await fetch(path, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body || {}) }); const data = await response.json(); if (!response.ok) throw Error(data.error || data.message || 'Request failed'); update(data); return data; }
+    function update(s) { $('#message').textContent = s.message; $('#dot').className = 'dot ' + (s.running ? 'live' : 'off'); $('#pause').textContent = s.paused ? 'Resume traffic' : 'Pause traffic'; $('#pause').disabled = !s.running; $('#speed').value = s.speed; }
+    document.querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', async () => { button.disabled = true; try { await call('/api/' + button.dataset.action); toast(button.textContent + ' complete'); } catch (e) { toast(e.message); } finally { button.disabled = false; } }));
+    $('#pause').addEventListener('click', async () => { try { await call('/api/traffic', {paused: !$('#pause').textContent.startsWith('Resume')}); } catch (e) { toast(e.message); } });
+    $('#speed').addEventListener('change', async e => { try { await call('/api/speed', {speed: Number(e.target.value)}); toast('Speed updated'); } catch (e) { toast(e.message); } });
+    async function refresh() { try { update(await (await fetch('/api/status')).json()); } catch (_) { $('#message').textContent = 'Backend unavailable'; $('#dot').className = 'dot off'; } } refresh(); setInterval(refresh, 2000);
+  </script>
+</body></html>

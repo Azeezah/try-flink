@@ -1,5 +1,6 @@
 import csv
 import json
+import os
 import time
 from datetime import datetime
 from kafka import KafkaProducer
@@ -22,8 +23,20 @@ producer = KafkaProducer(
 
 TOPIC = 'youtube-clicks'
 CSV_FILE = 'youtube-clicks.csv'
+CONTROL_FILE = os.environ.get('SIM_CONTROL_FILE', '.simulation-control.json')
+DEFAULT_SPEED = float(os.environ.get('SIM_SPEED', '120'))
 
-print("Starting throttled real-time stream simulation...")
+
+def read_control():
+    """Read the small control file without making the simulator depend on Flask."""
+    try:
+        with open(CONTROL_FILE, 'r') as control_file:
+            value = json.load(control_file)
+        return bool(value.get('paused', False)), max(float(value.get('speed', DEFAULT_SPEED)), 0.01)
+    except (FileNotFoundError, json.JSONDecodeError, TypeError, ValueError):
+        return False, DEFAULT_SPEED
+
+print("Starting throttled real-time stream simulation...", flush=True)
 
 with open(CSV_FILE, 'r') as f:
     reader = csv.reader(f)
@@ -42,22 +55,27 @@ with open(CSV_FILE, 'r') as f:
         vid, ts_str = row[0], row[1]
         current_virtual_time = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
         
+        # Pause and speed are read between events, so the UI can change them live.
+        paused, speed = read_control()
+        while paused:
+            time.sleep(0.1)
+            paused, speed = read_control()
+
         # Calculate how many virtual seconds passed between this event and the last
         virtual_time_diff = (current_virtual_time - last_virtual_time).total_seconds()
-        
-        # --- TIME SCALING FACTOR ---
-        # 1.0 = Exact real-time matching (takes 24 hours to finish file)
-        # 60.0 = 1 minute of virtual time happens in 1 second of real time (24 hours finishes in 24 mins)
-        TIME_SCALE = 120.0 
-        
-        target_real_delay = virtual_time_diff / TIME_SCALE
-        
-        # Calculate how much time we actually need to sleep
-        elapsed_real_time = time.time() - last_real_time
-        sleep_duration = target_real_delay - elapsed_real_time
-        
-        if sleep_duration > 0:
-            time.sleep(sleep_duration)
+
+        # Recheck the target delay during the wait so speed changes apply live.
+        while True:
+            paused, speed = read_control()
+            if paused:
+                time.sleep(0.1)
+                last_real_time = time.time()
+                continue
+            elapsed_real_time = time.time() - last_real_time
+            sleep_duration = (virtual_time_diff / speed) - elapsed_real_time
+            if sleep_duration <= 0:
+                break
+            time.sleep(min(sleep_duration, 0.1))
             
         # Emit the event to Kafka
         producer.send(TOPIC, {"videoid": vid, "timestamp": ts_str})
@@ -67,5 +85,5 @@ with open(CSV_FILE, 'r') as f:
         last_real_time = time.time()
 
 producer.flush()
-print("Stream simulation complete.")
+print("Stream simulation complete.", flush=True)
 

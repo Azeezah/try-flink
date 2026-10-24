@@ -3,11 +3,21 @@ Sep 23, 2026:  Will finally try out Flink.  Will simulate some load and tune a F
 
 # Setup
 1. Install docker ([download the .dmg from the website](https://www.docker.com/products/docker-desktop/) because homebrew has dropped support for intel mac).
-2. `python3 -m pip install kafka-python-ng` (This is the Kafka client so the python script can send events to Kafka.  The "ng" means next generation kafka client which was created for py9+ because the original library was abandoned.)
+2. `python3 -m pip install -r requirements.txt` This installs flask and the kafka client.
 <br>
 Docker will handle downloading everything else.
 
-# How to run it
+# How to run it via the control panel
+
+Start the flask app
+
+```sh
+python3 app.py
+```
+
+Then open http://localhost:5000, and click the play button.  This will run the docker and start the traffic.
+
+# How to run it manually
 
 ## 1. Start the flink and kafka inside of docker
 Start the docker desktop app then run `docker compose up -d`.

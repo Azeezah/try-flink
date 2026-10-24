@@ -1,6 +1,9 @@
 services:
   jobmanager:
     image: flink:1.18.1-scala_2.12
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
     volumes:
       - ./sql:/opt/flink/sql:ro
     ports:
@@ -39,17 +42,38 @@ services:
 
   kafka:
     image: docker.redpanda.com/redpandadata/redpanda:v23.2.1
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "info", "--brokers", "127.0.0.1:9092"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
     ports:
       - "19092:19092"
     command:
       - redpanda
       - start
       - --mode
-      - dev-container  # We set mode=dev so that when kafka receives events for a new partition it will autocreate that partition.
+      - dev-container  # This autotunes memory and CPU usage a bit.
       - --kafka-addr
       - internal://0.0.0.0:9092,external://0.0.0.0:19092
       - --advertise-kafka-addr
       - internal://kafka:9092,external://127.0.0.1:19092  # This is intentionally set to 127.0.0.1 instead of localhost to force it to use ipv4.  MacOS smartly switches between ipv4 and ipv6, but we're not sure if the python kafka client is smart enough to switch in sync, so we enforce ipv4 to be safe.
+
+  # Creates the Kafka topic before Flink starts. Safe to rerun with an existing topic.
+  kafka-init:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.2.1
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        if ! rpk topic describe youtube-clicks --brokers kafka:9092 >/dev/null 2>&1; then
+          rpk topic create youtube-clicks --partitions 1 --replicas 1 --brokers kafka:9092
+        fi
+        rpk topic describe youtube-clicks --brokers kafka:9092
 
   # This is a kafka viewer.
   console:
@@ -59,6 +83,7 @@ services:
     environment:
       - KAFKA_BROKERS=kafka:9092
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
 
 

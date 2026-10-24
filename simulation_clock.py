@@ -29,7 +29,8 @@ class SimulationClock:
             if not paused and remaining <= 0:
                 return speed
 
-            # Pause freezes virtual time. Resume and speed changes take effect
-            # when observed, without rescaling time that has already passed.
+            # When paused, loop with a fixed delay.  
+            # When not paused, also loop with a fixed delay (so we can pick up config updates quickly).  
+            # Unless there's not much time left, in which case we sleep for the remaining time.
             delay = self.POLL_INTERVAL if paused else min(remaining / speed, self.POLL_INTERVAL)
             time.sleep(delay)

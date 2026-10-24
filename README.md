@@ -17,7 +17,7 @@ python3 app.py
 
 Then open http://localhost:5000, and click the play button.  This will run the docker and start the traffic.
 
-The control panel also shows the simulator's effective traffic rate.  The purple line is the expected rate from the CSV's per-second event counts multiplied by the selected speed; the blue line is records acknowledged by Kafka per second; the red line is records handed to the Kafka client by the simulator.  The blue and red lines are measured from real wall-clock activity, not from the timestamps in the CSV.
+The control panel also shows the simulator's effective traffic rate.  The purple line is the expected rate from a rolling one-real-second window of CSV events; at speed `S`, that window covers the latest `S` simulated one-second buckets.  The blue line is records acknowledged by Kafka per second; the red line is records handed to the Kafka client by the simulator.  The blue and red lines are measured from real wall-clock activity, not from the timestamps in the CSV.
 
 # How to run it manually
 

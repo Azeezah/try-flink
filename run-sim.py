@@ -4,7 +4,7 @@ import os
 import threading
 import time
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from kafka import KafkaProducer
 
 """
@@ -82,6 +82,21 @@ with open(CSV_FILE, 'r') as source_file:
     next(source_reader)
     expected_events_per_second = Counter(row[1] for row in source_reader)
 
+expected_start = min(datetime.strptime(value, "%Y-%m-%d %H:%M:%S") for value in expected_events_per_second)
+expected_end = max(datetime.strptime(value, "%Y-%m-%d %H:%M:%S") for value in expected_events_per_second)
+expected_prefix = [0]
+for offset in range(int((expected_end - expected_start).total_seconds()) + 1):
+    bucket = (expected_start + timedelta(seconds=offset)).strftime("%Y-%m-%d %H:%M:%S")
+    expected_prefix.append(expected_prefix[-1] + expected_events_per_second.get(bucket, 0))
+
+
+def expected_rate(virtual_time, speed):
+    """Count events in the last one-real-second window of simulated time."""
+    window_seconds = max(1, int(round(speed)))
+    current_offset = int((virtual_time - expected_start).total_seconds())
+    window_start = max(0, current_offset - window_seconds + 1)
+    return expected_prefix[current_offset + 1] - expected_prefix[window_start]
+
 with open(CSV_FILE, 'r') as f:
     reader = csv.reader(f)
     header = next(reader) # Skip header
@@ -95,7 +110,8 @@ with open(CSV_FILE, 'r') as f:
     first_future.add_callback(on_delivery)
     first_future.add_errback(on_delivery_error)
     record_metric('attempted')
-    set_expected_rate(expected_events_per_second[first_row[1]] * DEFAULT_SPEED)
+    _, first_speed = read_control()
+    set_expected_rate(expected_rate(last_virtual_time, first_speed))
     
     last_real_time = time.time()
     
@@ -128,7 +144,7 @@ with open(CSV_FILE, 'r') as f:
         future.add_callback(on_delivery)
         future.add_errback(on_delivery_error)
         record_metric('attempted')
-        set_expected_rate(expected_events_per_second[ts_str] * speed)
+        set_expected_rate(expected_rate(current_virtual_time, speed))
         
         # Keep track of clocks for the next iteration
         last_virtual_time = current_virtual_time

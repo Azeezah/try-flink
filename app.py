@@ -36,7 +36,6 @@ def run_command(args, **kwargs):
 
 
 def wait_for_flink(timeout=45):
-    """Wait for the REST endpoint without adding a requests dependency."""
     import urllib.request
 
     deadline = time.time() + timeout

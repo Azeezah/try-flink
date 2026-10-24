@@ -18,8 +18,7 @@ class SimulationClock:
             paused, speed = self._read_control()
             now = time.monotonic()
 
-            # Charge elapsed time to the previous control state. Processing and
-            # late wakeups advance this clock too, so later waits can be shorter.
+            # Charge elapsed time to the previous control state.
             if not self._paused:
                 self._virtual_seconds += (now - self._last_wall_time) * self._speed
             self._last_wall_time = now

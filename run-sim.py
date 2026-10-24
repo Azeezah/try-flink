@@ -3,6 +3,7 @@ import json
 import os
 import threading
 import time
+from collections import Counter
 from datetime import datetime, timezone
 from kafka import KafkaProducer
 
@@ -29,13 +30,18 @@ METRICS_FILE = os.environ.get('SIM_METRICS_FILE', '.traffic-metrics.jsonl')
 DEFAULT_SPEED = float(os.environ.get('SIM_SPEED', '120'))
 
 metrics_lock = threading.Lock()
-metrics = {'attempted': 0, 'acked': 0, 'errors': 0}
+metrics = {'expected': 0, 'attempted': 0, 'acked': 0, 'errors': 0}
 metrics_stop = threading.Event()
 
 
 def record_metric(name):
     with metrics_lock:
         metrics[name] += 1
+
+
+def set_expected_rate(value):
+    with metrics_lock:
+        metrics['expected'] = value
 
 
 def on_delivery(_metadata):
@@ -71,6 +77,11 @@ print("Starting throttled real-time stream simulation...", flush=True)
 metrics_writer = threading.Thread(target=write_metrics, daemon=True)
 metrics_writer.start()
 
+with open(CSV_FILE, 'r') as source_file:
+    source_reader = csv.reader(source_file)
+    next(source_reader)
+    expected_events_per_second = Counter(row[1] for row in source_reader)
+
 with open(CSV_FILE, 'r') as f:
     reader = csv.reader(f)
     header = next(reader) # Skip header
@@ -84,6 +95,7 @@ with open(CSV_FILE, 'r') as f:
     first_future.add_callback(on_delivery)
     first_future.add_errback(on_delivery_error)
     record_metric('attempted')
+    set_expected_rate(expected_events_per_second[first_row[1]] * DEFAULT_SPEED)
     
     last_real_time = time.time()
     
@@ -116,6 +128,7 @@ with open(CSV_FILE, 'r') as f:
         future.add_callback(on_delivery)
         future.add_errback(on_delivery_error)
         record_metric('attempted')
+        set_expected_rate(expected_events_per_second[ts_str] * speed)
         
         # Keep track of clocks for the next iteration
         last_virtual_time = current_virtual_time

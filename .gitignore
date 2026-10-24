@@ -1,2 +1,3 @@
 .simulation-control.json
+.traffic-metrics.jsonl
 __pycache__/

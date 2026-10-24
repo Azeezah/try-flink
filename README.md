@@ -17,6 +17,8 @@ python3 app.py
 
 Then open http://localhost:5000, and click the play button.  This will run the docker and start the traffic.
 
+The control panel also shows the simulator's effective traffic rate.  The blue line is records acknowledged by Kafka per second; the red line is records handed to the Kafka client by the simulator.  These are measured from real wall-clock delivery activity, not from the timestamps in the CSV.
+
 # How to run it manually
 
 ## 1. Start the flink and kafka inside of docker
@@ -55,6 +57,8 @@ Run this command to watch the events go through (they will each print in the ter
 View Flink's web dashboard: http://localhost:8081
 
 View Kafka's web dashboard: http://localhost:8080/overview
+
+When using the control panel, the Kafka traffic chart is available at http://localhost:5000.
 
 # Files
  - `sql/clicks-per-minute.sql` - This contains the clicks-per-minute query in flinkSQL.

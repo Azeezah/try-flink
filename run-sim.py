@@ -1,8 +1,9 @@
 import csv
 import json
 import os
+import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from kafka import KafkaProducer
 
 """
@@ -24,7 +25,37 @@ producer = KafkaProducer(
 TOPIC = 'youtube-clicks'
 CSV_FILE = 'youtube-clicks.csv'
 CONTROL_FILE = os.environ.get('SIM_CONTROL_FILE', '.simulation-control.json')
+METRICS_FILE = os.environ.get('SIM_METRICS_FILE', '.traffic-metrics.jsonl')
 DEFAULT_SPEED = float(os.environ.get('SIM_SPEED', '120'))
+
+metrics_lock = threading.Lock()
+metrics = {'attempted': 0, 'acked': 0, 'errors': 0}
+metrics_stop = threading.Event()
+
+
+def record_metric(name):
+    with metrics_lock:
+        metrics[name] += 1
+
+
+def on_delivery(_metadata):
+    record_metric('acked')
+
+
+def on_delivery_error(_error):
+    record_metric('errors')
+
+
+def write_metrics():
+    """Write one aggregate sample per second so the dashboard stays cheap."""
+    with open(METRICS_FILE, 'w') as metrics_file:
+        while not metrics_stop.wait(1):
+            with metrics_lock:
+                sample = dict(metrics)
+                metrics.update(attempted=0, acked=0, errors=0)
+            sample['wall_time'] = datetime.now(timezone.utc).isoformat()
+            metrics_file.write(json.dumps(sample) + '\n')
+            metrics_file.flush()
 
 
 def read_control():
@@ -37,6 +68,8 @@ def read_control():
         return False, DEFAULT_SPEED
 
 print("Starting throttled real-time stream simulation...", flush=True)
+metrics_writer = threading.Thread(target=write_metrics, daemon=True)
+metrics_writer.start()
 
 with open(CSV_FILE, 'r') as f:
     reader = csv.reader(f)
@@ -47,7 +80,10 @@ with open(CSV_FILE, 'r') as f:
     last_virtual_time = datetime.strptime(first_row[1], "%Y-%m-%d %H:%M:%S")
     
     # Send the first event
-    producer.send(TOPIC, {"videoid": first_row[0], "timestamp": first_row[1]})
+    first_future = producer.send(TOPIC, {"videoid": first_row[0], "timestamp": first_row[1]})
+    first_future.add_callback(on_delivery)
+    first_future.add_errback(on_delivery_error)
+    record_metric('attempted')
     
     last_real_time = time.time()
     
@@ -76,12 +112,17 @@ with open(CSV_FILE, 'r') as f:
             time.sleep(min(sleep_duration, 0.1))
             
         # Emit the event to Kafka
-        producer.send(TOPIC, {"videoid": vid, "timestamp": ts_str})
+        future = producer.send(TOPIC, {"videoid": vid, "timestamp": ts_str})
+        future.add_callback(on_delivery)
+        future.add_errback(on_delivery_error)
+        record_metric('attempted')
         
         # Keep track of clocks for the next iteration
         last_virtual_time = current_virtual_time
         last_real_time = time.time()
 
 producer.flush()
+metrics_stop.set()
+metrics_writer.join(timeout=2)
 print("Stream simulation complete.", flush=True)
 

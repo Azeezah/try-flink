@@ -5,46 +5,35 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Flink playground</title>
   <style>
-    :root { color-scheme: dark; --bg: #0c1117; --panel: #141c25; --line: #263543; --text: #edf4f7; --muted: #8ea1ad; --mint: #6ee7c8; --amber: #ffc86b; --red: #ff7d86; }
-    * { box-sizing: border-box; } body { margin: 0; min-height: 100vh; background: radial-gradient(circle at 15% 0%, #1b3e45 0, transparent 35%), var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, sans-serif; }
-    main { max-width: 1080px; margin: auto; padding: 56px 28px 72px; } .eyebrow { color: var(--mint); letter-spacing: .12em; text-transform: uppercase; font-size: 12px; font-weight: 700; }
-    h1 { font-size: clamp(38px, 7vw, 70px); line-height: .98; letter-spacing: -.05em; margin: 12px 0 16px; max-width: 680px; } .intro { color: var(--muted); font-size: 17px; max-width: 620px; }
-    .grid { display: grid; grid-template-columns: 1.25fr .75fr; gap: 18px; margin-top: 42px; } .card { background: rgba(20, 28, 37, .9); border: 1px solid var(--line); border-radius: 20px; padding: 24px; box-shadow: 0 18px 55px #0003; }
-    .card h2 { margin: 0 0 8px; font-size: 19px; } .sub { color: var(--muted); margin: 0 0 22px; } .actions { display: flex; flex-wrap: wrap; gap: 10px; }
-    button, select { border: 1px solid #385061; border-radius: 10px; padding: 11px 15px; background: #1b2934; color: var(--text); font: inherit; cursor: pointer; } button:hover, select:hover { border-color: var(--mint); }
-    button.primary { background: var(--mint); color: #08221e; border-color: var(--mint); font-weight: 750; } button.danger { color: var(--red); } button:disabled { opacity: .45; cursor: wait; }
-    .status { display: flex; align-items: center; gap: 10px; margin: 12px 0 0; color: var(--muted); } .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--amber); } .dot.live { background: var(--mint); box-shadow: 0 0 16px var(--mint); } .dot.off { background: var(--red); }
-    .setting { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 15px 0; border-bottom: 1px solid var(--line); } .setting:last-child { border-bottom: 0; padding-bottom: 0; } .setting label { color: var(--muted); }
-    .hint { grid-column: 1 / -1; display: flex; gap: 12px; align-items: flex-start; color: var(--muted); font-size: 14px; } .hint strong { color: var(--text); } .toast { position: fixed; right: 24px; bottom: 24px; background: #20333d; border: 1px solid #3b5962; padding: 12px 16px; border-radius: 12px; opacity: 0; transform: translateY(10px); transition: .2s; } .toast.show { opacity: 1; transform: none; }
-    @media (max-width: 760px) { main { padding: 34px 18px 48px; } .grid { grid-template-columns: 1fr; margin-top: 28px; } .hint { grid-column: auto; } }
+    :root { color-scheme: light; --ink: #252a2d; --muted: #7d8588; --line: #d9dfe0; --blue: #dceeff; --blue-ink: #47719b; --rose: #ffe3e3; --rose-ink: #a96565; --lavender: #eee8ff; --lavender-ink: #7464a2; }
+    * { box-sizing: border-box; } body { margin: 0; min-height: 100vh; background: #fff; color: var(--ink); font: 15px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 20px 52px; }
+    .controls { display: flex; align-items: center; gap: 22px; } button { border: 0; cursor: pointer; font: inherit; transition: transform .12s ease, filter .12s ease; } button:hover { filter: brightness(.97); transform: translateY(-1px); } button:active { transform: translateY(1px); } button:disabled { opacity: .45; cursor: wait; transform: none; }
+    .control { width: 104px; height: 104px; border-radius: 22px; display: grid; place-items: center; } .play { background: var(--blue); color: var(--blue-ink); } .stop { background: var(--rose); color: var(--rose-ink); } .restart { background: var(--lavender); color: var(--lavender-ink); }
+    .icon { display: block; position: relative; width: 42px; height: 42px; } .play-icon { width: 0; height: 0; border-top: 20px solid transparent; border-bottom: 20px solid transparent; border-left: 29px solid currentColor; margin-left: 7px; } .pause-icon::before, .pause-icon::after { content: ""; position: absolute; top: 3px; width: 9px; height: 36px; border-radius: 2px; background: currentColor; } .pause-icon::before { left: 8px; } .pause-icon::after { right: 8px; } .stop-icon { width: 33px; height: 33px; border-radius: 4px; background: currentColor; } .restart-icon { width: 45px; height: 45px; display: block; transform: rotate(90deg); }
+    .speed-wrap { margin-top: 42px; position: relative; } select { appearance: none; width: 272px; height: 72px; border: 2px solid #aeb5b7; border-radius: 18px; padding: 0 60px 0 28px; background: #fff; color: var(--ink); font: 28px/1 system-ui, sans-serif; text-align: center; text-align-last: center; cursor: pointer; } .chevron { pointer-events: none; position: absolute; right: 26px; top: 25px; width: 18px; height: 18px; border-right: 2px solid #71787b; border-bottom: 2px solid #71787b; transform: rotate(45deg); }
+    .status { display: flex; align-items: center; gap: 9px; margin-top: 30px; color: var(--muted); font-size: 14px; } .dot { width: 9px; height: 9px; border-radius: 50%; background: #e48b8b; } .dot.live { background: #72bd8c; } .dot.paused { background: #e2b66f; }
+    .toast { position: fixed; right: 20px; bottom: 20px; max-width: calc(100vw - 40px); padding: 11px 15px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--muted); box-shadow: 0 8px 25px #26343b16; opacity: 0; transform: translateY(8px); transition: .2s; } .toast.show { opacity: 1; transform: none; }
+    @media (max-width: 560px) { .controls { gap: 12px; } .control { width: 84px; height: 84px; border-radius: 18px; } .play-icon { border-top-width: 16px; border-bottom-width: 16px; border-left-width: 23px; } .pause-icon::before, .pause-icon::after { height: 30px; top: 6px; } .stop-icon { width: 28px; height: 28px; } .restart-icon { transform: scale(.85) rotate(90deg); } }
   </style>
 </head>
 <body>
   <main>
-    <div class="eyebrow">Flink playground · local control</div>
-    <h1>Make streaming feel tangible.</h1>
-    <p class="intro">Start the stack, shape the traffic, and keep the experiment close at hand. Metrics can join this screen as the playground grows.</p>
-    <section class="grid">
-      <article class="card">
-        <h2>Simulation</h2><p class="sub">Docker, Flink SQL, and the click producer.</p>
-        <div class="actions"><button class="primary" data-action="start">Start everything</button><button data-action="restart">Restart</button><button class="danger" data-action="stop">Stop</button></div>
-        <div class="status"><span id="dot" class="dot"></span><span id="message">Checking status…</span></div>
-      </article>
-      <article class="card">
-        <h2>Traffic controls</h2><p class="sub">Change the scenario while it is running.</p>
-        <div class="setting"><label for="speed">Simulated time</label><select id="speed"><option value="1">1× · real time</option><option value="60">60× · fast</option><option value="120" selected>120× · very fast</option></select></div>
-        <div class="setting"><label>Traffic flow</label><button id="pause">Pause traffic</button></div>
-      </article>
-      <div class="hint"><span>✦</span><span><strong>Next up:</strong> the same surface can show Kafka lag, Flink throughput, checkpoints, backpressure, and the clicks-per-minute output without replacing the native dashboards.</span></div>
-    </section>
-  </main><div id="toast" class="toast"></div>
+    <div class="controls" aria-label="Simulation controls"><button id="play" class="control play" aria-label="Start everything"><span id="play-icon" class="icon play-icon"></span></button><button id="stop" class="control stop" aria-label="Stop everything"><span class="icon stop-icon"></span></button><button id="restart" class="control restart" aria-label="Restart everything"><svg class="restart-icon" viewBox="0 0 512 512" aria-hidden="true"><path d="M48.5 224H40c-13.3 0-24-10.7-24-24V72c0-9.7 5.8-18.5 14.8-22.2s19.3-1.7 26.2 5.2L98.6 96.6c87.6-86.5 228.7-86.2 315.8 1 87.5 87.5 87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3c-62.2-62.2-162.7-62.5-225.3-1L185 183c6.9 6.9 8.9 17.2 5.2 26.2s-12.5 14.8-22.2 14.8H48.5z" fill="currentColor"/></svg></button></div>
+    <div class="speed-wrap"><label for="speed" hidden>Simulated time speed</label><select id="speed" aria-label="Simulated time speed"><option value="1">1×</option><option value="60">60×</option><option value="120" selected>120×</option></select><span class="chevron"></span></div>
+    <div class="status"><span id="dot" class="dot"></span><span id="message">Checking status…</span></div>
+  </main><div id="toast" class="toast" role="status"></div>
   <script>
-    const $ = s => document.querySelector(s), toast = msg => { const el = $('#toast'); el.textContent = msg; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2600); };
-    async function call(path, body) { const response = await fetch(path, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body || {}) }); const data = await response.json(); if (!response.ok) throw Error(data.error || data.message || 'Request failed'); update(data); return data; }
-    function update(s) { $('#message').textContent = s.message; $('#dot').className = 'dot ' + (s.running ? 'live' : 'off'); $('#pause').textContent = s.paused ? 'Resume traffic' : 'Pause traffic'; $('#pause').disabled = !s.running; $('#speed').value = s.speed; }
-    document.querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', async () => { button.disabled = true; try { await call('/api/' + button.dataset.action); toast(button.textContent + ' complete'); } catch (e) { toast(e.message); } finally { button.disabled = false; } }));
-    $('#pause').addEventListener('click', async () => { try { await call('/api/traffic', {paused: !$('#pause').textContent.startsWith('Resume')}); } catch (e) { toast(e.message); } });
-    $('#speed').addEventListener('change', async e => { try { await call('/api/speed', {speed: Number(e.target.value)}); toast('Speed updated'); } catch (e) { toast(e.message); } });
-    async function refresh() { try { update(await (await fetch('/api/status')).json()); } catch (_) { $('#message').textContent = 'Backend unavailable'; $('#dot').className = 'dot off'; } } refresh(); setInterval(refresh, 2000);
+    const $ = selector => document.querySelector(selector);
+    const toast = message => { const element = $('#toast'); element.textContent = message; element.classList.add('show'); setTimeout(() => element.classList.remove('show'), 2600); };
+    async function getStatus() { const response = await fetch('/api/status'); return response.json(); }
+    async function call(path, body) { const response = await fetch(path, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body || {}) }); const data = await response.json(); if (!response.ok) throw Error(data.error || data.message || 'Request failed'); update(data); return data; }
+    function update(status) { $('#message').textContent = status.message; $('#dot').className = 'dot ' + (status.running ? (status.paused ? 'paused' : 'live') : ''); $('#speed').value = status.speed; const icon = $('#play-icon'); icon.className = 'icon ' + (status.running && !status.paused ? 'pause-icon' : 'play-icon'); $('#play').setAttribute('aria-label', status.running && !status.paused ? 'Pause traffic' : status.running ? 'Resume traffic' : 'Start everything'); }
+    $('#play').addEventListener('click', async () => { $('#play').disabled = true; try { const status = await getStatus(); await call(status.running ? '/api/traffic' : '/api/start', status.running ? {paused: !status.paused} : {}); } catch (error) { toast(error.message); } finally { $('#play').disabled = false; } });
+    $('#stop').addEventListener('click', async () => { $('#stop').disabled = true; try { await call('/api/stop'); toast('Stopped'); } catch (error) { toast(error.message); } finally { $('#stop').disabled = false; } });
+    $('#restart').addEventListener('click', async () => { $('#restart').disabled = true; try { await call('/api/restart'); toast('Restarted'); } catch (error) { toast(error.message); } finally { $('#restart').disabled = false; } });
+    $('#speed').addEventListener('change', async event => { try { await call('/api/speed', {speed: Number(event.target.value)}); } catch (error) { toast(error.message); } });
+    async function refresh() { try { update(await getStatus()); } catch (_) { $('#message').textContent = 'Backend unavailable'; $('#dot').className = 'dot'; } } refresh(); setInterval(refresh, 2000);
   </script>
-</body></html>
+</body>
+</html>

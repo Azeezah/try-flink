@@ -70,8 +70,7 @@ def start_stack():
             return
         state["message"] = "Submitting Flink SQL…"
         sql_client = run_command(["docker", "compose", "exec", "-T", "jobmanager", "./bin/sql-client.sh", "-f", SQL_FILE])
-        # Give SQL client a moment to submit before traffic begins.
-        time.sleep(2)
+        # This simulation may start before the above FlinkSQL is submitted and that's fine because the clicks will be durably stored in Kafka either way.
         simulator = run_command(["python3", "run-sim.py"], env={**os.environ, "SIM_CONTROL_FILE": str(CONTROL_FILE)})
         state["message"] = "Traffic is running"
 

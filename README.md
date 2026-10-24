@@ -17,8 +17,6 @@ python3 app.py
 
 Then open http://localhost:5000, and click the play button.  This will run the docker and start the traffic.
 
-The control panel also shows the simulator's effective traffic rate.  The purple line is the expected rate from a rolling one-real-second window of CSV events; at speed `S`, that window covers the latest `S` simulated one-second buckets.  The blue line is records acknowledged by Kafka per second; the red line is records handed to the Kafka client by the simulator.  The blue and red lines are measured from real wall-clock activity, not from the timestamps in the CSV.
-
 # How to run it manually
 
 ## 1. Start the flink and kafka inside of docker
@@ -32,10 +30,6 @@ Run `python3 generate-fake-clicks-data.py` which creates `youtube-clicks.csv`.
 
 ## 3. Send the fake data to the kafka
 Run `python3 run-sim.py`
-
-Replay follows a continuous simulation clock measured with `time.monotonic()`. At 120×, 120 simulated seconds should take one real second. If sending or waking from sleep runs late, subsequent waits shorten so the delay does not accumulate. Overdue records are sent in order without skipping them. Pausing freezes this clock, and changing speed affects the remaining simulated time. Controls are checked between events and at least every 0.1 seconds while waiting.
-
-Run the timing regression checks without Docker or Kafka with `python3 -m unittest test_simulation_clock`.
 
 ## 4. Get flink to consume the data from Kafka
 
@@ -62,7 +56,7 @@ View Flink's web dashboard: http://localhost:8081
 
 View Kafka's web dashboard: http://localhost:8080/overview
 
-When using the control panel, the Kafka traffic chart is available at http://localhost:5000.
+The traffic chart is available within the control panel: http://localhost:5000.
 
 # Files
  - `sql/clicks-per-minute.sql` - This contains the clicks-per-minute query in flinkSQL.

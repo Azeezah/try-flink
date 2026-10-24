@@ -2,10 +2,12 @@ import csv
 import json
 import os
 import threading
-import time
 from collections import Counter
 from datetime import datetime, timedelta, timezone
+from itertools import chain
 from kafka import KafkaProducer
+
+from simulation_clock import SimulationClock
 
 """
 Design:
@@ -102,42 +104,14 @@ with open(CSV_FILE, 'r') as f:
     header = next(reader) # Skip header
     
     first_row = next(reader)
-    # Parse the very first event's virtual time
-    last_virtual_time = datetime.strptime(first_row[1], "%Y-%m-%d %H:%M:%S")
+    first_virtual_time = datetime.strptime(first_row[1], "%Y-%m-%d %H:%M:%S")
+    simulation_clock = SimulationClock(read_control)
     
-    # Send the first event
-    first_future = producer.send(TOPIC, {"videoid": first_row[0], "timestamp": first_row[1]})
-    first_future.add_callback(on_delivery)
-    first_future.add_errback(on_delivery_error)
-    record_metric('attempted')
-    _, first_speed = read_control()
-    set_expected_rate(expected_rate(last_virtual_time, first_speed))
-    
-    last_real_time = time.time()
-    
-    for row in reader:
+    for row in chain((first_row,), reader):
         vid, ts_str = row[0], row[1]
         current_virtual_time = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
-        virtual_time_diff = (current_virtual_time - last_virtual_time).total_seconds()
-        
-        # Pause and speed are read between events, so the UI can change them live.
-        paused, speed = read_control()
-        while paused:
-            time.sleep(0.1)
-            paused, speed = read_control()
-
-        # Recheck the target delay during the wait so speed changes apply live.
-        while True:
-            paused, speed = read_control()
-            if paused:
-                time.sleep(0.1)
-                last_real_time = time.time()
-                continue
-            elapsed_real_time = time.time() - last_real_time
-            sleep_duration = (virtual_time_diff / speed) - elapsed_real_time
-            if sleep_duration <= 0:
-                break
-            time.sleep(min(sleep_duration, 0.1))
+        virtual_seconds = (current_virtual_time - first_virtual_time).total_seconds()
+        speed = simulation_clock.wait_until(virtual_seconds)
             
         # Emit the event to Kafka
         future = producer.send(TOPIC, {"videoid": vid, "timestamp": ts_str})
@@ -146,10 +120,6 @@ with open(CSV_FILE, 'r') as f:
         record_metric('attempted')
         set_expected_rate(expected_rate(current_virtual_time, speed))
         
-        # Keep track of clocks for the next iteration
-        last_virtual_time = current_virtual_time
-        last_real_time = time.time()
-
 producer.flush()
 metrics_stop.set()
 metrics_writer.join(timeout=2)

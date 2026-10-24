@@ -33,6 +33,10 @@ Run `python3 generate-fake-clicks-data.py` which creates `youtube-clicks.csv`.
 ## 3. Send the fake data to the kafka
 Run `python3 run-sim.py`
 
+Replay follows a continuous simulation clock measured with `time.monotonic()`. At 120×, 120 simulated seconds should take one real second. If sending or waking from sleep runs late, subsequent waits shorten so the delay does not accumulate. Overdue records are sent in order without skipping them. Pausing freezes this clock, and changing speed affects the remaining simulated time. Controls are checked between events and at least every 0.1 seconds while waiting.
+
+Run the timing regression checks without Docker or Kafka with `python3 -m unittest test_simulation_clock`.
+
 ## 4. Get flink to consume the data from Kafka
 
 The query lives in [`sql/clicks-per-minute.sql`](sql/clicks-per-minute.sql) which is mirrored into the docker container.  Run it like this:

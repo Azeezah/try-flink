@@ -28,7 +28,7 @@ DEFAULT_SPEED = float(os.environ.get('SIM_SPEED', '120'))
 
 
 def read_control():
-    """Read the small control file without making the simulator depend on Flask."""
+    """Returns a tuple: (paused, speed)"""
     try:
         with open(CONTROL_FILE, 'r') as control_file:
             value = json.load(control_file)
@@ -54,15 +54,13 @@ with open(CSV_FILE, 'r') as f:
     for row in reader:
         vid, ts_str = row[0], row[1]
         current_virtual_time = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
+        virtual_time_diff = (current_virtual_time - last_virtual_time).total_seconds()
         
         # Pause and speed are read between events, so the UI can change them live.
         paused, speed = read_control()
         while paused:
             time.sleep(0.1)
             paused, speed = read_control()
-
-        # Calculate how many virtual seconds passed between this event and the last
-        virtual_time_diff = (current_virtual_time - last_virtual_time).total_seconds()
 
         # Recheck the target delay during the wait so speed changes apply live.
         while True:

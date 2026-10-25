@@ -58,11 +58,9 @@ View Kafka's web dashboard: http://localhost:8080/overview
 
 The traffic chart is available within the control panel: http://localhost:5000.
 
-Traffic samples are stored once per second in `.traffic-metrics.bin`. The dashboard reads only the latest 900 samples and receives them in the same compact binary format, without an additional metrics service. After updating from the JSONL version, restart Flask and the simulator and reload the page. Previous `.traffic-metrics.jsonl` files are preserved, but the new chart uses the binary file.
-
-Run the storage, endpoint, and timing checks with `python3 -m unittest test_traffic_metrics test_simulation_clock`. If Node is installed, `node test_traffic_chart.cjs` also checks that the browser decodes Python's sample format correctly.
-
-Compare response latency, memory use, file size, and response size with `python3 benchmark_traffic_metrics.py`. See [the benchmark report](benchmarks/traffic-metrics.md) for results and measurement details.
+# How to run the tests
+ - `python3 -m unittest test_traffic_metrics test_simulation_clock`
+ - `node test_traffic_chart.cjs` checks that the browser decodes Python's sample format correctly.
 
 # Files
  - `sql/clicks-per-minute.sql` - This contains the clicks-per-minute query in flinkSQL.
@@ -70,9 +68,6 @@ Compare response latency, memory use, file size, and response size with `python3
  - `generate-fake-clicks-data.py` - This creates `youtube-clicks.csv` with the columns `videoid` and `timestamp`.
  - `youtube-clicks.csv` - This contains the generated fake click data.
  - `run-sim.py` - This sends the clicks to the kafka, respecting the timestamps for each event.
-
-# Notes
-This uses dev mode so that kafka will autocreate kafka topics if the client sends it ones it doesn't know about.
 
 # Debugging
  - Open docker desktop and confirm that all containers are green.  If not, review the logs in docker, fix it, then restart docker.

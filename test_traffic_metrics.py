@@ -1,6 +1,7 @@
 """Binary storage and dashboard response checks, without Docker or Kafka."""
 
 import io
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -26,6 +27,12 @@ class TrafficMetricsTests(unittest.TestCase):
         response = read_recent(self.path)
         self.assertEqual(RECORD.size, 24)
         self.assertEqual(RECORD.unpack(response[len(HEADER):]), (timestamp, *sample.values()))
+
+    def test_encoder_matches_the_shared_browser_fixture(self):
+        fixture_path = Path(__file__).parent / 'test-fixtures' / 'traffic-metrics.json'
+        fixture = json.loads(fixture_path.read_text())
+        encoded = HEADER + b''.join(pack_sample(sample, sample['wall_time']) for sample in fixture['samples'])
+        self.assertEqual(encoded, bytes.fromhex(fixture['hex']))
 
     def test_only_latest_complete_samples_are_returned(self):
         records = [self.record(i) for i in range(1005)]

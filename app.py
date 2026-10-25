@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import atexit
 import os
 import subprocess
 import threading
@@ -58,6 +59,7 @@ def stop_process(process):
             process.wait(timeout=5)
         except subprocess.TimeoutExpired:
             process.kill()
+            process.wait()
 
 
 def start_stack():
@@ -90,6 +92,11 @@ def stop_stack():
         subprocess.run(["docker", "compose", "down", "--remove-orphans"], cwd=ROOT, check=False)
         state.update(running=False, paused=False, message="Stopped")
         save_control()
+
+
+@atexit.register
+def stop_simulator_on_exit():
+    stop_stack()
 
 
 @app.get("/")

@@ -1,4 +1,3 @@
 .simulation-control.json
-.traffic-metrics.jsonl
 .traffic-metrics.bin
 __pycache__/

@@ -80,7 +80,7 @@ class SimulationClockTests(unittest.TestCase):
                     return False, initial if self.time.now < 2 - 1e-9 else final
 
                 clock = SimulationClock(controls)
-                self.assertEqual(clock.wait_until(10), final)
+                self.assertIsNone(clock.wait_until(seconds_since_start=10))
                 self.assertAlmostEqual(self.time.now, expected)
 
 

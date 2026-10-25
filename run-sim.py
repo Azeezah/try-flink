@@ -113,14 +113,15 @@ with open(CSV_FILE, 'r') as f:
     for row in chain((first_row,), reader):
         vid, ts_str = row[0], row[1]
         current_virtual_time = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
-        virtual_seconds = (current_virtual_time - first_virtual_time).total_seconds()
-        speed = simulation_clock.wait_until(virtual_seconds)
+        seconds_since_start = (current_virtual_time - first_virtual_time).total_seconds()
+        simulation_clock.wait_until(seconds_since_start)
             
         # Emit the event to Kafka
         future = producer.send(TOPIC, {"videoid": vid, "timestamp": ts_str})
         future.add_callback(on_delivery)
         future.add_errback(on_delivery_error)
         record_metric('attempted')
+        _, speed = read_control()
         set_expected_rate(expected_rate(current_virtual_time, speed))
         
 producer.flush()

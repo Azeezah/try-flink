@@ -1,2 +1,3 @@
 Flask>=3.0,<4
 kafka-python-ng>=2.2,<3  # This is the Kafka client so the python script can send events to Kafka.  The "ng" means next generation kafka client which was created for py9+ because the original library was abandoned.
+crc32c>=2.9,<3  # Optional: Native CRC32C acceleration, automatically used by kafka-python-ng.

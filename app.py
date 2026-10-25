@@ -156,8 +156,8 @@ def traffic():
 @app.post("/api/speed")
 def speed():
     value = float(request.json.get("speed", 120))
-    if value not in (1, 60, 120):
-        return jsonify({"error": "Speed must be 1, 60, or 120"}), 400
+    if value not in (1, 60, 120, 1000):
+        return jsonify({"error": "Speed must be 1, 60, 120, or 1000"}), 400
     with lock:
         state["speed"] = int(value)
         save_control()

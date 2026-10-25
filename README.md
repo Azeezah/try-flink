@@ -60,7 +60,7 @@ The traffic chart is available within the control panel: http://localhost:5000.
 
 # How to run the tests
  - `python3 -m unittest test_traffic_metrics test_simulation_clock`
- - `node test_traffic_chart.cjs` checks that the browser decodes Python's sample format correctly.
+ - `node test_traffic_chart.cjs`
 
 # Files
  - `sql/clicks-per-minute.sql` - This contains the clicks-per-minute query in flinkSQL.

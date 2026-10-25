@@ -33,6 +33,9 @@ CSV_FILE = 'youtube-clicks.csv'
 CONTROL_FILE = os.environ.get('SIM_CONTROL_FILE', '.simulation-control.json')
 METRICS_FILE = os.environ.get('SIM_METRICS_FILE', '.traffic-metrics.bin')
 DEFAULT_SPEED = float(os.environ.get('SIM_SPEED', '120'))
+CONTROL_POLL_INTERVAL = 0.2
+cached_control = (False, DEFAULT_SPEED)
+next_control_read = 0.0
 
 metrics_lock = threading.Lock()
 metrics = {'expected': 0, 'attempted': 0, 'acked': 0, 'errors': 0}
@@ -71,13 +74,19 @@ def write_metrics():
 
 
 def read_control():
-    """Returns a tuple: (paused, speed)"""
+    """Return (paused, speed), reading the file at most every 200 ms."""
+    global cached_control, next_control_read
+    now = time.monotonic()
+    if now < next_control_read:
+        return cached_control
     try:
         with open(CONTROL_FILE, 'r') as control_file:
             value = json.load(control_file)
-        return bool(value.get('paused', False)), max(float(value.get('speed', DEFAULT_SPEED)), 0.01)
+        cached_control = bool(value.get('paused', False)), max(float(value.get('speed', DEFAULT_SPEED)), 0.01)
     except (FileNotFoundError, json.JSONDecodeError, TypeError, ValueError):
-        return False, DEFAULT_SPEED
+        cached_control = False, DEFAULT_SPEED
+    next_control_read = time.monotonic() + CONTROL_POLL_INTERVAL
+    return cached_control
 
 print("Starting throttled real-time stream simulation...", flush=True)
 metrics_writer = threading.Thread(target=write_metrics, daemon=True)

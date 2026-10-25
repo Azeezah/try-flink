@@ -24,7 +24,7 @@ It is scaled down though because we're replaying a full 24 hours of traffic in j
 producer = KafkaProducer(
     bootstrap_servers=['127.0.0.1:19092'],
     api_version=(2, 0, 2),    
-    linger_ms=5,  # Allow short batches to reduce Kafka request overhead.
+    linger_ms=100,  # Allow short batches to reduce Kafka request overhead.
     value_serializer=lambda v: json.dumps(v).encode('utf-8')
 )
 

@@ -2,12 +2,14 @@ import csv
 import json
 import os
 import threading
+import time
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from itertools import chain
 from kafka import KafkaProducer
 
 from simulation_clock import SimulationClock
+from traffic_metrics import HEADER, pack_sample
 
 """
 Design:
@@ -28,7 +30,7 @@ producer = KafkaProducer(
 TOPIC = 'youtube-clicks'
 CSV_FILE = 'youtube-clicks.csv'
 CONTROL_FILE = os.environ.get('SIM_CONTROL_FILE', '.simulation-control.json')
-METRICS_FILE = os.environ.get('SIM_METRICS_FILE', '.traffic-metrics.jsonl')
+METRICS_FILE = os.environ.get('SIM_METRICS_FILE', '.traffic-metrics.bin')
 DEFAULT_SPEED = float(os.environ.get('SIM_SPEED', '120'))
 
 metrics_lock = threading.Lock()
@@ -56,13 +58,14 @@ def on_delivery_error(_error):
 
 def write_metrics():
     """Write one aggregate sample per second so the dashboard stays cheap."""
-    with open(METRICS_FILE, 'w') as metrics_file:
+    with open(METRICS_FILE, 'wb') as metrics_file:
+        metrics_file.write(HEADER)
+        metrics_file.flush()
         while not metrics_stop.wait(1):
             with metrics_lock:
                 sample = dict(metrics)
                 metrics.update(attempted=0, acked=0, errors=0)
-            sample['wall_time'] = datetime.now(timezone.utc).isoformat()
-            metrics_file.write(json.dumps(sample) + '\n')
+            metrics_file.write(pack_sample(sample, time.time()))
             metrics_file.flush()
 
 

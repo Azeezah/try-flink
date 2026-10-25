@@ -29,6 +29,28 @@
     const $ = selector => document.querySelector(selector);
     const toast = message => { const element = $('#toast'); element.textContent = message; element.classList.add('show'); setTimeout(() => element.classList.remove('show'), 2600); };
     async function getStatus() { const response = await fetch('/api/status'); return response.json(); }
+    function decodeTraffic(buffer) {
+      const headerSize = 8, recordSize = 24;
+      if (buffer.byteLength < headerSize || (buffer.byteLength - headerSize) % recordSize !== 0) throw Error('Invalid traffic sample data');
+      const view = new DataView(buffer);
+      if (String.fromCharCode(...new Uint8Array(buffer, 0, 4)) !== 'TRFM' || view.getUint32(4, true) !== 1) throw Error('Unsupported traffic sample format');
+      const samples = [];
+      for (let offset = headerSize; offset < buffer.byteLength; offset += recordSize) {
+        samples.push({
+          wall_time: new Date(view.getFloat64(offset, true) * 1000).toISOString(),
+          expected: view.getUint32(offset + 8, true),
+          attempted: view.getUint32(offset + 12, true),
+          acked: view.getUint32(offset + 16, true),
+          errors: view.getUint32(offset + 20, true),
+        });
+      }
+      return samples;
+    }
+    async function getTraffic() {
+      const response = await fetch('/api/traffic', {cache: 'no-store'});
+      if (!response.ok) throw Error('Could not read traffic samples');
+      return decodeTraffic(await response.arrayBuffer());
+    }
     async function call(path, body) { const response = await fetch(path, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body || {}) }); const data = await response.json(); if (!response.ok) throw Error(data.error || data.message || 'Request failed'); update(data); return data; }
     function update(status) { $('#message').textContent = status.message; $('#dot').className = 'dot ' + (status.running ? (status.paused ? 'paused' : 'live') : ''); $('#speed').value = status.speed; const icon = $('#play-icon'); icon.className = 'icon ' + (status.running && !status.paused ? 'pause-icon' : 'play-icon'); $('#play').setAttribute('aria-label', status.running && !status.paused ? 'Pause traffic' : status.running ? 'Resume traffic' : 'Start everything'); }
     function drawTraffic(samples) { const canvas = $('#traffic-chart'), rect = canvas.getBoundingClientRect(), ratio = window.devicePixelRatio || 1, width = Math.max(rect.width, 320), height = 260; canvas.width = width * ratio; canvas.height = height * ratio; const ctx = canvas.getContext('2d'); ctx.scale(ratio, ratio); ctx.clearRect(0, 0, width, height); const left = 42, right = 14, top = 18, bottom = 28, plotW = width - left - right, plotH = height - top - bottom; const visible = samples.slice(-900); const value = (sample, key) => Number(sample[key] || 0); const max = Math.max(1, ...visible.map(sample => Math.max(value(sample, 'expected'), value(sample, 'acked'), value(sample, 'attempted')))); ctx.strokeStyle = '#e7ecec'; ctx.fillStyle = '#7d8588'; ctx.font = '12px system-ui'; ctx.textAlign = 'right'; for (let i = 0; i <= 3; i++) { const y = top + plotH * i / 3; ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(width - right, y); ctx.stroke(); ctx.fillText(Math.round(max * (3 - i) / 3), left - 8, y + 4); } const line = (key, color) => { if (!visible.length) return; ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath(); visible.forEach((sample, index) => { const x = left + (visible.length === 1 ? plotW / 2 : plotW * index / (visible.length - 1)); const y = top + plotH * (1 - value(sample, key) / max); index ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke(); }; line('expected', '#7464a2'); line('acked', '#47719b'); line('attempted', '#a96565'); const recent = visible.slice(-10); const rps = recent.length ? Math.round(recent.reduce((sum, sample) => sum + value(sample, 'acked'), 0) / recent.length) : 0; $('#current-rps').textContent = `${rps} RPS`; }
@@ -36,7 +58,7 @@
     $('#stop').addEventListener('click', async () => { $('#stop').disabled = true; try { await call('/api/stop'); toast('Stopped'); } catch (error) { toast(error.message); } finally { $('#stop').disabled = false; } });
     $('#restart').addEventListener('click', async () => { $('#restart').disabled = true; try { await call('/api/restart'); toast('Restarted'); } catch (error) { toast(error.message); } finally { $('#restart').disabled = false; } });
     $('#speed').addEventListener('change', async event => { try { await call('/api/speed', {speed: Number(event.target.value)}); } catch (error) { toast(error.message); } });
-    async function refresh() { try { update(await getStatus()); drawTraffic(await (await fetch('/api/traffic')).json()); } catch (_) { $('#message').textContent = 'Backend unavailable'; $('#dot').className = 'dot'; } } refresh(); setInterval(refresh, 2000); window.addEventListener('resize', async () => drawTraffic(await (await fetch('/api/traffic')).json()));
+    async function refresh() { try { update(await getStatus()); drawTraffic(await getTraffic()); } catch (_) { $('#message').textContent = 'Backend unavailable'; $('#dot').className = 'dot'; } } refresh(); setInterval(refresh, 2000); window.addEventListener('resize', async () => { try { drawTraffic(await getTraffic()); } catch (error) { toast(error.message); } });
   </script>
 </body>
 </html>

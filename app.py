@@ -9,12 +9,14 @@ import threading
 import time
 from pathlib import Path
 
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, Response, jsonify, request, send_file
+
+from traffic_metrics import read_recent
 
 
 ROOT = Path(__file__).resolve().parent
 CONTROL_FILE = ROOT / ".simulation-control.json"
-METRICS_FILE = ROOT / ".traffic-metrics.jsonl"
+METRICS_FILE = ROOT / ".traffic-metrics.bin"
 SQL_FILE = "/opt/flink/sql/clicks-per-minute.sql"
 app = Flask(__name__)
 
@@ -106,17 +108,11 @@ def status():
 
 @app.get("/api/traffic")
 def traffic_metrics():
-    samples = []
-    try:
-        with METRICS_FILE.open() as metrics_file:
-            for line in metrics_file:
-                try:
-                    samples.append(json.loads(line))
-                except json.JSONDecodeError:
-                    continue
-    except FileNotFoundError:
-        pass
-    return jsonify(samples[-900:])
+    return Response(
+        read_recent(METRICS_FILE),
+        mimetype="application/octet-stream",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.post("/api/start")

@@ -97,8 +97,8 @@ with open(CSV_FILE, 'r') as source_file:
     next(source_reader)
     expected_events_per_second = Counter(row[1] for row in source_reader)
 
-expected_start = min(datetime.strptime(value, "%Y-%m-%d %H:%M:%S") for value in expected_events_per_second)
-expected_end = max(datetime.strptime(value, "%Y-%m-%d %H:%M:%S") for value in expected_events_per_second)
+expected_start = min(datetime.fromisoformat(value) for value in expected_events_per_second)
+expected_end = max(datetime.fromisoformat(value) for value in expected_events_per_second)
 expected_prefix = [0]
 for offset in range(int((expected_end - expected_start).total_seconds()) + 1):
     bucket = (expected_start + timedelta(seconds=offset)).strftime("%Y-%m-%d %H:%M:%S")
@@ -117,12 +117,12 @@ with open(CSV_FILE, 'r') as f:
     header = next(reader) # Skip header
     
     first_row = next(reader)
-    first_virtual_time = datetime.strptime(first_row[1], "%Y-%m-%d %H:%M:%S")
+    first_virtual_time = datetime.fromisoformat(first_row[1])
     simulation_clock = SimulationClock(read_control)
     
     for row in chain((first_row,), reader):
         vid, ts_str = row[0], row[1]
-        current_virtual_time = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
+        current_virtual_time = datetime.fromisoformat(ts_str)
         seconds_since_start = (current_virtual_time - first_virtual_time).total_seconds()
         simulation_clock.wait_until(seconds_since_start)
             

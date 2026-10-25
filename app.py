@@ -9,11 +9,14 @@ import threading
 import time
 from pathlib import Path
 
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, Response, jsonify, request, send_file
+
+from traffic_metrics import read_recent
 
 
 ROOT = Path(__file__).resolve().parent
 CONTROL_FILE = ROOT / ".simulation-control.json"
+METRICS_FILE = ROOT / ".traffic-metrics.bin"
 SQL_FILE = "/opt/flink/sql/clicks-per-minute.sql"
 app = Flask(__name__)
 
@@ -71,7 +74,10 @@ def start_stack():
         state["message"] = "Submitting Flink SQL…"
         sql_client = run_command(["docker", "compose", "exec", "-T", "jobmanager", "./bin/sql-client.sh", "-f", SQL_FILE])
         # This simulation may start before the above FlinkSQL is submitted and that's fine because the clicks will be durably stored in Kafka either way.
-        simulator = run_command(["python3", "run-sim.py"], env={**os.environ, "SIM_CONTROL_FILE": str(CONTROL_FILE)})
+        simulator = run_command(
+            ["python3", "run-sim.py"],
+            env={**os.environ, "SIM_CONTROL_FILE": str(CONTROL_FILE), "SIM_METRICS_FILE": str(METRICS_FILE)},
+        )
         state["message"] = "Traffic is running"
 
 
@@ -98,6 +104,15 @@ def status():
             state["running"] = False
             state["message"] = "Simulation finished"
         return jsonify(state)
+
+
+@app.get("/api/traffic")
+def traffic_metrics():
+    return Response(
+        read_recent(METRICS_FILE),
+        mimetype="application/octet-stream",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.post("/api/start")

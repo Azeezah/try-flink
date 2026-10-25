@@ -1,9 +1,15 @@
 import csv
 import json
 import os
+import threading
 import time
-from datetime import datetime
+from collections import Counter
+from datetime import datetime, timedelta
+from itertools import chain
 from kafka import KafkaProducer
+
+from simulation_clock import SimulationClock
+from traffic_metrics import HEADER, pack_sample
 
 """
 Design:
@@ -24,7 +30,43 @@ producer = KafkaProducer(
 TOPIC = 'youtube-clicks'
 CSV_FILE = 'youtube-clicks.csv'
 CONTROL_FILE = os.environ.get('SIM_CONTROL_FILE', '.simulation-control.json')
+METRICS_FILE = os.environ.get('SIM_METRICS_FILE', '.traffic-metrics.bin')
 DEFAULT_SPEED = float(os.environ.get('SIM_SPEED', '120'))
+
+metrics_lock = threading.Lock()
+metrics = {'expected': 0, 'attempted': 0, 'acked': 0, 'errors': 0}
+metrics_stop = threading.Event()
+
+
+def record_metric(name):
+    with metrics_lock:
+        metrics[name] += 1
+
+
+def set_expected_rate(value):
+    with metrics_lock:
+        metrics['expected'] = value
+
+
+def on_delivery(_metadata):
+    record_metric('acked')
+
+
+def on_delivery_error(_error):
+    record_metric('errors')
+
+
+def write_metrics():
+    """Write one aggregate sample per second so the dashboard stays cheap."""
+    with open(METRICS_FILE, 'wb') as metrics_file:
+        metrics_file.write(HEADER)
+        metrics_file.flush()
+        while not metrics_stop.wait(1):
+            with metrics_lock:
+                sample = dict(metrics)
+                metrics.update(attempted=0, acked=0, errors=0)
+            metrics_file.write(pack_sample(sample, time.time()))
+            metrics_file.flush()
 
 
 def read_control():
@@ -37,51 +79,53 @@ def read_control():
         return False, DEFAULT_SPEED
 
 print("Starting throttled real-time stream simulation...", flush=True)
+metrics_writer = threading.Thread(target=write_metrics, daemon=True)
+metrics_writer.start()
+
+with open(CSV_FILE, 'r') as source_file:
+    source_reader = csv.reader(source_file)
+    next(source_reader)
+    expected_events_per_second = Counter(row[1] for row in source_reader)
+
+expected_start = min(datetime.strptime(value, "%Y-%m-%d %H:%M:%S") for value in expected_events_per_second)
+expected_end = max(datetime.strptime(value, "%Y-%m-%d %H:%M:%S") for value in expected_events_per_second)
+expected_prefix = [0]
+for offset in range(int((expected_end - expected_start).total_seconds()) + 1):
+    bucket = (expected_start + timedelta(seconds=offset)).strftime("%Y-%m-%d %H:%M:%S")
+    expected_prefix.append(expected_prefix[-1] + expected_events_per_second.get(bucket, 0))
+
+
+def expected_rate(virtual_time, speed):
+    """Count events in the last one-real-second window of simulated time."""
+    window_seconds = max(1, int(round(speed)))
+    current_offset = int((virtual_time - expected_start).total_seconds())
+    window_start = max(0, current_offset - window_seconds + 1)
+    return expected_prefix[current_offset + 1] - expected_prefix[window_start]
 
 with open(CSV_FILE, 'r') as f:
     reader = csv.reader(f)
     header = next(reader) # Skip header
     
     first_row = next(reader)
-    # Parse the very first event's virtual time
-    last_virtual_time = datetime.strptime(first_row[1], "%Y-%m-%d %H:%M:%S")
+    first_virtual_time = datetime.strptime(first_row[1], "%Y-%m-%d %H:%M:%S")
+    simulation_clock = SimulationClock(read_control)
     
-    # Send the first event
-    producer.send(TOPIC, {"videoid": first_row[0], "timestamp": first_row[1]})
-    
-    last_real_time = time.time()
-    
-    for row in reader:
+    for row in chain((first_row,), reader):
         vid, ts_str = row[0], row[1]
         current_virtual_time = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
-        virtual_time_diff = (current_virtual_time - last_virtual_time).total_seconds()
-        
-        # Pause and speed are read between events, so the UI can change them live.
-        paused, speed = read_control()
-        while paused:
-            time.sleep(0.1)
-            paused, speed = read_control()
-
-        # Recheck the target delay during the wait so speed changes apply live.
-        while True:
-            paused, speed = read_control()
-            if paused:
-                time.sleep(0.1)
-                last_real_time = time.time()
-                continue
-            elapsed_real_time = time.time() - last_real_time
-            sleep_duration = (virtual_time_diff / speed) - elapsed_real_time
-            if sleep_duration <= 0:
-                break
-            time.sleep(min(sleep_duration, 0.1))
+        seconds_since_start = (current_virtual_time - first_virtual_time).total_seconds()
+        simulation_clock.wait_until(seconds_since_start)
             
         # Emit the event to Kafka
-        producer.send(TOPIC, {"videoid": vid, "timestamp": ts_str})
+        future = producer.send(TOPIC, {"videoid": vid, "timestamp": ts_str})
+        future.add_callback(on_delivery)
+        future.add_errback(on_delivery_error)
+        record_metric('attempted')
+        _, speed = read_control()
+        set_expected_rate(expected_rate(current_virtual_time, speed))
         
-        # Keep track of clocks for the next iteration
-        last_virtual_time = current_virtual_time
-        last_real_time = time.time()
-
 producer.flush()
+metrics_stop.set()
+metrics_writer.join(timeout=2)
 print("Stream simulation complete.", flush=True)
 

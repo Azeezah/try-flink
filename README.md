@@ -56,15 +56,18 @@ View Flink's web dashboard: http://localhost:8081
 
 View Kafka's web dashboard: http://localhost:8080/overview
 
+The traffic chart is available within the control panel: http://localhost:5000.
+
+# How to run the tests
+ - `python3 -m unittest test_traffic_metrics test_simulation_clock`
+ - `node test_traffic_chart.cjs`
+
 # Files
  - `sql/clicks-per-minute.sql` - This contains the clicks-per-minute query in flinkSQL.
  - `docker-compose.yml` - This describes and configures a kafka and a flink instance.
  - `generate-fake-clicks-data.py` - This creates `youtube-clicks.csv` with the columns `videoid` and `timestamp`.
  - `youtube-clicks.csv` - This contains the generated fake click data.
  - `run-sim.py` - This sends the clicks to the kafka, respecting the timestamps for each event.
-
-# Notes
-This uses dev mode so that kafka will autocreate kafka topics if the client sends it ones it doesn't know about.
 
 # Debugging
  - Open docker desktop and confirm that all containers are green.  If not, review the logs in docker, fix it, then restart docker.

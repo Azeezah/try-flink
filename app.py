@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import atexit
 import os
 import subprocess
 import threading
@@ -58,6 +59,12 @@ def stop_process(process):
             process.wait(timeout=5)
         except subprocess.TimeoutExpired:
             process.kill()
+            process.wait()
+
+
+@atexit.register
+def stop_simulator_on_exit():
+    stop_process(simulator)
 
 
 def start_stack():
@@ -76,7 +83,7 @@ def start_stack():
         # This simulation may start before the above FlinkSQL is submitted and that's fine because the clicks will be durably stored in Kafka either way.
         simulator = run_command(
             ["python3", "run-sim.py"],
-            env={**os.environ, "SIM_CONTROL_FILE": str(CONTROL_FILE), "SIM_METRICS_FILE": str(METRICS_FILE)},
+            env={**os.environ, "SIM_CONTROL_FILE": str(CONTROL_FILE), "SIM_METRICS_FILE": str(METRICS_FILE), "SIM_PARENT_PID": str(os.getpid())},
         )
         state["message"] = "Traffic is running"
 

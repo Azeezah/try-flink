@@ -84,6 +84,14 @@ class TrafficMetricsTests(unittest.TestCase):
         self.assertEqual(response.headers['Cache-Control'], 'no-store')
         self.assertEqual(response.data, self.path.read_bytes())
 
+    def test_dashboard_serves_the_decoder_as_a_javascript_module(self):
+        import app
+
+        with app.app.test_client() as client:
+            with client.get('/static/traffic-metrics.mjs') as response:
+                self.assertEqual(response.status_code, 200)
+                self.assertIn(response.mimetype, ('text/javascript', 'application/javascript'))
+
 
 if __name__ == '__main__':
     unittest.main()

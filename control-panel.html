@@ -25,27 +25,12 @@
     <div class="status"><span id="dot" class="dot"></span><span id="message">Checking status…</span></div>
     <section class="traffic" aria-label="Kafka traffic"><div class="traffic-heading"><strong id="current-rps">0 RPS</strong><span>Kafka delivery rate · last 15 minutes</span></div><canvas id="traffic-chart" class="chart" height="260"></canvas><div class="legend"><span class="expected">expected from CSV × speed</span><span class="acked">acknowledged by Kafka</span><span class="attempted">sent by simulator</span></div></section>
   </main><div id="toast" class="toast" role="status"></div>
-  <script>
+  <script type="module">
+    import {decodeTraffic} from '/static/traffic-metrics.mjs';
+
     const $ = selector => document.querySelector(selector);
     const toast = message => { const element = $('#toast'); element.textContent = message; element.classList.add('show'); setTimeout(() => element.classList.remove('show'), 2600); };
     async function getStatus() { const response = await fetch('/api/status'); return response.json(); }
-    function decodeTraffic(buffer) {
-      const headerSize = 8, recordSize = 24;
-      if (buffer.byteLength < headerSize || (buffer.byteLength - headerSize) % recordSize !== 0) throw Error('Invalid traffic sample data');
-      const view = new DataView(buffer);
-      if (String.fromCharCode(...new Uint8Array(buffer, 0, 4)) !== 'TRFM' || view.getUint32(4, true) !== 1) throw Error('Unsupported traffic sample format');
-      const samples = [];
-      for (let offset = headerSize; offset < buffer.byteLength; offset += recordSize) {
-        samples.push({
-          wall_time: new Date(view.getFloat64(offset, true) * 1000).toISOString(),
-          expected: view.getUint32(offset + 8, true),
-          attempted: view.getUint32(offset + 12, true),
-          acked: view.getUint32(offset + 16, true),
-          errors: view.getUint32(offset + 20, true),
-        });
-      }
-      return samples;
-    }
     async function getTraffic() {
       const response = await fetch('/api/traffic', {cache: 'no-store'});
       if (!response.ok) throw Error('Could not read traffic samples');

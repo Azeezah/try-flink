@@ -6,11 +6,6 @@ import time
 from collections import Counter
 from datetime import datetime, timedelta
 from itertools import chain
-from parent_watchdog import watch_parent
-
-# Start before Kafka initialization, which can block while connecting.
-watch_parent()
-
 from kafka import KafkaProducer
 
 from simulation_clock import SimulationClock

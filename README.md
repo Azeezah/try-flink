@@ -17,11 +17,6 @@ python3 app.py
 
 Then open http://localhost:5000, and click the play button.  This will run the docker and start the traffic.
 
-The panel's simulator exits when Flask stops, including if Flask crashes or is
-force-killed. A watchdog checks for parent exit every 0.25 seconds. Docker services
-keep running; use the panel's Stop button to shut down the whole stack.
-Simulations started manually with `python3 run-sim.py` run independently.
-
 # How to run it manually
 
 ## 1. Start the flink and kafka inside of docker
@@ -64,7 +59,7 @@ View Kafka's web dashboard: http://localhost:8080/overview
 The traffic chart is available within the control panel: http://localhost:5000.
 
 # How to run the tests
- - `python3 -m unittest test_traffic_metrics test_simulation_clock test_parent_watchdog`
+ - `python3 -m unittest test_traffic_metrics test_simulation_clock`
  - `node test_traffic_chart.cjs`
 
 # Files

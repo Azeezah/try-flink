@@ -62,11 +62,6 @@ def stop_process(process):
             process.wait()
 
 
-@atexit.register
-def stop_simulator_on_exit():
-    stop_process(simulator)
-
-
 def start_stack():
     global simulator, sql_client
     with lock:
@@ -83,7 +78,7 @@ def start_stack():
         # This simulation may start before the above FlinkSQL is submitted and that's fine because the clicks will be durably stored in Kafka either way.
         simulator = run_command(
             ["python3", "run-sim.py"],
-            env={**os.environ, "SIM_CONTROL_FILE": str(CONTROL_FILE), "SIM_METRICS_FILE": str(METRICS_FILE), "SIM_PARENT_PID": str(os.getpid())},
+            env={**os.environ, "SIM_CONTROL_FILE": str(CONTROL_FILE), "SIM_METRICS_FILE": str(METRICS_FILE)},
         )
         state["message"] = "Traffic is running"
 
@@ -97,6 +92,11 @@ def stop_stack():
         subprocess.run(["docker", "compose", "down", "--remove-orphans"], cwd=ROOT, check=False)
         state.update(running=False, paused=False, message="Stopped")
         save_control()
+
+
+@atexit.register
+def stop_simulator_on_exit():
+    stop_stack()
 
 
 @app.get("/")

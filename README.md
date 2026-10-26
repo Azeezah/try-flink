@@ -3,7 +3,7 @@ Sep 23, 2026:  Will finally try out Flink.  Will simulate some load and tune a F
 
 # Setup
 1. Install docker ([download the .dmg from the website](https://www.docker.com/products/docker-desktop/) because homebrew has dropped support for intel mac).
-2. `python3 -m pip install -r requirements.txt` This installs flask and the kafka client.
+2. `python3 -m pip install -r requirements.txt` This installs Flask and the Kafka client.
 <br>
 Docker will handle downloading everything else.
 
@@ -59,7 +59,7 @@ View Kafka's web dashboard: http://localhost:8080/overview
 The traffic chart is available within the control panel: http://localhost:5000.
 
 # How to run the tests
- - `python3 -m unittest test_traffic_metrics test_simulation_clock`
+ - `python3 -m unittest test_traffic_metrics test_simulation_clock test_simulator_producer`
  - `node test_traffic_chart.cjs`
 
 # Files

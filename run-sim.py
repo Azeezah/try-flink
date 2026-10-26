@@ -23,7 +23,7 @@ It is scaled down though because we're replaying a full 24 hours of traffic in j
 # Connect to our local Kafka broker
 producer = Producer({
     'bootstrap.servers': '127.0.0.1:19092',
-    'linger.ms': 100,  # Allow short batches to reduce Kafka request overhead.
+    'linger.ms': 5,  # Allow short batches to reduce Kafka request overhead.
     'batch.size': 16384,
     'acks': 1,
     'retries': 0,

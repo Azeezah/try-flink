@@ -28,6 +28,8 @@ producer = Producer({
     'acks': 1,
     'retries': 0,
     'delivery.timeout.ms': 30000,
+    'queue.buffering.max.messages': 100_000,  # This is the default.  Making it explicit for ease of tuning.
+    'queue.buffering.max.kbytes': 1_048_576,  # 1 GiB. This is the default.  Making it explicit for ease of tuning.
 })
 
 TOPIC = 'youtube-clicks'
